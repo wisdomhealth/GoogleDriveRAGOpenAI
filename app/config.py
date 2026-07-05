@@ -13,6 +13,8 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class Settings:
+    """Environment-backed application configuration."""
+
     openai_api_key: str
     google_drive_folder_ids: tuple[str, ...]
     google_application_credentials: str | None
@@ -29,10 +31,12 @@ class Settings:
 
     @property
     def auth_enabled(self) -> bool:
+        """Enable Basic Auth only when both credentials are configured."""
         return bool(self.api_basic_auth_username and self.api_basic_auth_password)
 
 
 def _split_folder_ids(value: str | None) -> tuple[str, ...]:
+    """Parse comma-separated Drive folder IDs from an environment variable."""
     if not value:
         return tuple()
     return tuple(folder_id.strip() for folder_id in value.split(",") if folder_id.strip())
@@ -40,6 +44,7 @@ def _split_folder_ids(value: str | None) -> tuple[str, ...]:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Load settings once so every module sees a consistent configuration."""
     return Settings(
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         google_drive_folder_ids=_split_folder_ids(os.getenv("GOOGLE_DRIVE_FOLDER_ID")),

@@ -6,13 +6,17 @@ from openai import AsyncOpenAI
 
 
 class OpenAIChatService:
+    """Thin async wrapper around OpenAI chat completions."""
+
     def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+        """Create an OpenAI chat client for the configured model."""
         if not api_key:
             raise ValueError("OPENAI_API_KEY is required")
         self.client = AsyncOpenAI(api_key=api_key)
         self.model = model
 
     async def complete(self, system_prompt: str, user_prompt: str) -> str:
+        """Return one complete chat response for the supplied prompts."""
         response = await self.client.chat.completions.create(
             model=self.model,
             temperature=0.2,
@@ -24,6 +28,7 @@ class OpenAIChatService:
         return response.choices[0].message.content or ""
 
     async def stream(self, system_prompt: str, user_prompt: str) -> AsyncIterator[str]:
+        """Yield incremental text deltas from a streaming chat response."""
         stream = await self.client.chat.completions.create(
             model=self.model,
             temperature=0.2,

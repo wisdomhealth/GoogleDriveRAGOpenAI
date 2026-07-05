@@ -15,10 +15,14 @@ router = APIRouter(prefix="", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
+    """Request body for chat endpoints."""
+
     question: str = Field(..., min_length=1, max_length=4000)
 
 
 class SourceResponse(BaseModel):
+    """Retrieved document source returned with an answer."""
+
     file_name: str
     file_id: str
     snippet: str
@@ -27,16 +31,20 @@ class SourceResponse(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """Non-streaming chat response payload."""
+
     answer: str
     sources: list[SourceResponse]
 
 
 def get_rag(request: Request) -> RagPipeline:
+    """Fetch the process-wide RAG pipeline initialized during app startup."""
     return request.app.state.rag
 
 
 @router.post("/chat", response_model=ChatResponse, dependencies=[Depends(require_basic_auth)])
 async def chat(payload: ChatRequest, rag: RagPipeline = Depends(get_rag)) -> ChatResponse:
+    """Answer a question and return the answer plus retrieved source snippets."""
     try:
         result = await rag.answer(payload.question)
     except VectorStoreError as exc:
@@ -58,7 +66,10 @@ async def chat(payload: ChatRequest, rag: RagPipeline = Depends(get_rag)) -> Cha
 
 @router.post("/chat/stream", dependencies=[Depends(require_basic_auth)])
 async def stream_chat(payload: ChatRequest, rag: RagPipeline = Depends(get_rag)) -> StreamingResponse:
+    """Stream answer tokens as Server-Sent Events."""
+
     async def events():
+        """Translate RAG token chunks into SSE frames."""
         try:
             async for token in rag.stream_answer(payload.question):
                 yield f"data: {json.dumps({'token': token})}\n\n"

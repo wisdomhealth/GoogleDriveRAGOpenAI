@@ -19,6 +19,8 @@ logger = get_logger(__name__)
 
 
 class TokenEncoding(Protocol):
+    """Small adapter interface shared by tiktoken and the regex fallback."""
+
     def encode(self, text: str) -> list[Any]:
         ...
 
@@ -32,13 +34,17 @@ class RegexTokenEncoding:
     _TOKEN_RE = re.compile(r"\w+|[^\w\s]|\s+", re.UNICODE)
 
     def encode(self, text: str) -> list[str]:
+        """Split text into word, punctuation, and whitespace tokens."""
         return self._TOKEN_RE.findall(text)
 
     def decode(self, tokens: list[str]) -> str:
+        """Rebuild text exactly from regex tokens."""
         return "".join(tokens)
 
 
 class TextChunker:
+    """Create overlapping token chunks from extracted document pages."""
+
     def __init__(
         self,
         min_tokens: int = 1000,
@@ -46,6 +52,7 @@ class TextChunker:
         overlap_tokens: int = 150,
         encoding_name: str = "cl100k_base",
     ) -> None:
+        """Validate chunking limits and load the configured tokenizer."""
         if min_tokens <= 0 or max_tokens <= 0:
             raise ValueError("Chunk token sizes must be positive")
         if min_tokens > max_tokens:
@@ -58,6 +65,7 @@ class TextChunker:
         self.encoding = self._load_encoding(encoding_name)
 
     def chunk_pages(self, pages: Iterable[DocumentPage]) -> list[DocumentChunk]:
+        """Chunk pages with stable per-file indexes and overlap for recall."""
         chunks: list[DocumentChunk] = []
         chunk_index_by_file: dict[str, int] = {}
 
@@ -75,6 +83,8 @@ class TextChunker:
                 end = min(start + self.max_tokens, len(tokens))
                 token_slice = tokens[start:end]
 
+                # Avoid producing tiny middle chunks; the final tail is allowed
+                # because it may contain useful context from the end of a file.
                 if end < len(tokens) and len(token_slice) < self.min_tokens:
                     break
 
@@ -86,12 +96,15 @@ class TextChunker:
 
                 if end >= len(tokens):
                     break
+
+                # Move back by overlap_tokens so adjacent chunks share context.
                 start = max(end - self.overlap_tokens, start + 1)
 
         return chunks
 
     @staticmethod
     def _load_encoding(encoding_name: str) -> TokenEncoding:
+        """Load tiktoken encoding or fall back to deterministic regex tokens."""
         if tiktoken is None:
             logger.warning("Falling back to regex tokenization because tiktoken is not installed")
             return RegexTokenEncoding()
@@ -103,7 +116,11 @@ class TextChunker:
 
     @staticmethod
     def _make_chunk(page: DocumentPage, chunk_index: int, text: str) -> DocumentChunk:
+        """Create a stable chunk ID from file identity, position, and content."""
         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+        # Include content_hash so edited documents produce new chunk IDs, while
+        # unchanged chunks keep the same IDs across repeated ingestion runs.
         stable_key = f"{page.file_id}:{page.page_number or 0}:{chunk_index}:{content_hash}"
         chunk_id = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()
         return DocumentChunk(

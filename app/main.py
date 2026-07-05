@@ -18,8 +18,12 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize shared RAG dependencies once for the FastAPI process."""
     configure_logging()
     settings = get_settings()
+
+    # Keep vector store, embedding client, and LLM client on app.state so route
+    # handlers can reuse long-lived objects instead of rebuilding them per request.
     vector_store = ChromaVectorStore(settings.vector_store_dir)
     vector_store.load()
     embeddings = OpenAIEmbeddingService(
@@ -49,4 +53,5 @@ app.include_router(chat_router)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
+    """Return a minimal liveness response for health checks."""
     return {"status": "ok"}

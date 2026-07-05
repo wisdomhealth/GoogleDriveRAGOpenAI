@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 
 
 async def collect_pages(loader: GoogleDriveLoader, folder_ids: tuple[str, ...]) -> list[DocumentPage]:
+    """Materialize pages from all configured Drive folders before chunking."""
     pages: list[DocumentPage] = []
     async for page in loader.iter_folder_documents(folder_ids):
         pages.append(page)
@@ -28,6 +29,7 @@ async def collect_pages(loader: GoogleDriveLoader, folder_ids: tuple[str, ...]) 
 
 
 async def main() -> None:
+    """Run the full Drive ingestion pipeline into the local vector store."""
     configure_logging()
     settings = get_settings()
     if not settings.google_drive_folder_ids:
@@ -46,6 +48,9 @@ async def main() -> None:
         overlap_tokens=settings.chunk_overlap_tokens,
     )
     chunks = chunker.chunk_pages(pages)
+
+    # Chunks are content-addressed, so ingestion can be safely rerun without
+    # duplicating vectors that are already present in Chroma.
     existing_ids = vector_store.existing_chunk_ids()
     new_chunks = [chunk for chunk in chunks if chunk.chunk_id not in existing_ids]
     logger.info("Prepared %s chunks (%s new, %s existing)", len(chunks), len(new_chunks), len(chunks) - len(new_chunks))

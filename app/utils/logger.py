@@ -5,6 +5,7 @@ import sys
 
 
 def configure_logging(level: int = logging.INFO) -> None:
+    """Configure process-wide structured console logging."""
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -14,4 +15,5 @@ def configure_logging(level: int = logging.INFO) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Return a module-scoped logger."""
     return logging.getLogger(name)
