@@ -1,7 +1,11 @@
 .env
 .venv/
+credentials.json
+token.json
+client_secret_*.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
 data/chroma/*
 !data/chroma/.gitkeep
+*_rag_*.pdf
