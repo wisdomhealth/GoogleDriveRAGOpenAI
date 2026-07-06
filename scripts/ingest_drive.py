@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 from app.config import get_settings
 from app.db.vector_store import ChromaVectorStore
 from app.services.chunker import TextChunker
+from app.services.drive_auth import get_drive_service
 from app.services.drive_loader import GoogleDriveLoader
 from app.services.embedding import OpenAIEmbeddingService
 from app.services.models import DocumentPage
@@ -38,7 +39,16 @@ async def main() -> None:
     vector_store = ChromaVectorStore(settings.vector_store_dir)
     vector_store.load()
 
-    loader = GoogleDriveLoader(settings.google_application_credentials)
+    try:
+        drive_service = get_drive_service(
+            credentials_path=settings.google_oauth_credentials_file,
+            token_path=settings.google_oauth_token_file,
+        )
+    except FileNotFoundError as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
+
+    loader = GoogleDriveLoader(drive_service)
     pages = await collect_pages(loader, settings.google_drive_folder_ids)
     logger.info("Extracted %s pages/documents from Google Drive", len(pages))
 

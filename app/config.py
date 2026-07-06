@@ -8,7 +8,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env")
 
 
 @dataclass(frozen=True)
@@ -17,7 +18,8 @@ class Settings:
 
     openai_api_key: str
     google_drive_folder_ids: tuple[str, ...]
-    google_application_credentials: str | None
+    google_oauth_credentials_file: Path = Path("credentials.json")
+    google_oauth_token_file: Path = Path("token.json")
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4o-mini"
     vector_store_dir: Path = Path("data/chroma")
@@ -48,7 +50,8 @@ def get_settings() -> Settings:
     return Settings(
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         google_drive_folder_ids=_split_folder_ids(os.getenv("GOOGLE_DRIVE_FOLDER_ID")),
-        google_application_credentials=os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+        google_oauth_credentials_file=Path(os.getenv("GOOGLE_OAUTH_CREDENTIALS_FILE", "credentials.json")),
+        google_oauth_token_file=Path(os.getenv("GOOGLE_OAUTH_TOKEN_FILE", "token.json")),
         openai_embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
         openai_chat_model=os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini"),
         vector_store_dir=Path(os.getenv("VECTOR_STORE_DIR", "data/chroma")),

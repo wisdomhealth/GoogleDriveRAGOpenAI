@@ -29,8 +29,8 @@ data/chroma/           Local Chroma persistence directory
 
 - Python 3.11+
 - OpenAI API key
-- Google Cloud service account JSON file with Google Drive read access
-- One or more Google Drive folder IDs shared with that service account
+- Google OAuth desktop client JSON saved as `credentials.json`
+- One or more Google Drive folder IDs accessible to the signed-in Google user
 
 ## Setup
 
@@ -50,8 +50,11 @@ cp .env.example .env
 
 ```bash
 OPENAI_API_KEY=your-openai-api-key
-GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/google-service-account.json
 GOOGLE_DRIVE_FOLDER_ID=drive-folder-id-1,drive-folder-id-2
+
+# OAuth desktop client and cached token files
+GOOGLE_OAUTH_CREDENTIALS_FILE=credentials.json
+GOOGLE_OAUTH_TOKEN_FILE=token.json
 
 # Optional model overrides
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
@@ -73,9 +76,11 @@ API_BASIC_AUTH_PASSWORD=
 Notes:
 
 - `GOOGLE_DRIVE_FOLDER_ID` accepts a comma-separated list.
-- The service account must be able to read the Drive folders and files.
+- `credentials.json` must be an OAuth client JSON for a desktop app, not a service account JSON.
+- On the first ingestion run, a browser opens for Google login and writes `token.json`.
+- The signed-in Google account must be able to read the Drive folders and files.
 - Basic Auth is disabled unless both `API_BASIC_AUTH_USERNAME` and `API_BASIC_AUTH_PASSWORD` are set.
-- `.env` and generated Chroma data are ignored by git.
+- `.env`, OAuth credential/token files, and generated Chroma data are ignored by git.
 
 ## Ingest Google Drive Documents
 
@@ -85,13 +90,16 @@ Run ingestion before asking questions:
 python scripts/ingest_drive.py
 ```
 
+On the first run, the script starts a local OAuth browser flow. After login succeeds, `token.json` is generated automatically and reused by later runs.
+
 The script:
 
-1. Lists supported files from the configured Drive folders.
-2. Extracts text from PDF, DOCX, and TXT files.
-3. Splits text into overlapping chunks.
-4. Embeds new chunks with OpenAI.
-5. Persists them in Chroma under `VECTOR_STORE_DIR`.
+1. Authenticates with Google Drive through OAuth InstalledAppFlow.
+2. Lists supported files from the configured Drive folders.
+3. Extracts text from PDF, DOCX, and TXT files.
+4. Splits text into overlapping chunks.
+5. Embeds new chunks with OpenAI.
+6. Persists them in Chroma under `VECTOR_STORE_DIR`.
 
 Existing chunks are skipped by chunk ID, so repeated runs only add new content.
 
@@ -181,15 +189,12 @@ Run the API:
 docker run --rm -p 8000:8000 \
   --env-file .env \
   -v "$PWD/data:/app/data" \
-  -v "/absolute/path/to/google-service-account.json:/credentials/service-account.json:ro" \
+  -v "$PWD/credentials.json:/app/credentials.json:ro" \
+  -v "$PWD/token.json:/app/token.json" \
   google-drive-rag-openai
 ```
 
-If the credentials path inside `.env` points to the host file, update it for the container mount, for example:
-
-```bash
-GOOGLE_APPLICATION_CREDENTIALS=/credentials/service-account.json
-```
+Because this project uses an installed-app OAuth browser flow, run `python scripts/ingest_drive.py` locally first to generate `token.json` before running ingestion inside Docker.
 
 To ingest inside Docker, override the command:
 
@@ -197,7 +202,8 @@ To ingest inside Docker, override the command:
 docker run --rm \
   --env-file .env \
   -v "$PWD/data:/app/data" \
-  -v "/absolute/path/to/google-service-account.json:/credentials/service-account.json:ro" \
+  -v "$PWD/credentials.json:/app/credentials.json:ro" \
+  -v "$PWD/token.json:/app/token.json" \
   google-drive-rag-openai \
   python scripts/ingest_drive.py
 ```
@@ -214,6 +220,7 @@ The current tests cover chunking, text cleaning, and vector store behavior.
 
 - `OPENAI_API_KEY is required`: set `OPENAI_API_KEY` in `.env` or the process environment.
 - `GOOGLE_DRIVE_FOLDER_ID is required`: set one or more folder IDs before running ingestion.
-- `GOOGLE_APPLICATION_CREDENTIALS is required for Drive ingestion`: provide an absolute path to the service account JSON file.
+- `Google OAuth client file not found`: download an OAuth desktop client JSON from Google Cloud and save it as `credentials.json`.
+- Browser does not open during first login: run ingestion from a local terminal with browser access, or open the printed OAuth URL manually.
 - `Vector store is empty`: run `python scripts/ingest_drive.py` before calling `/chat`.
-- No files found during ingestion: confirm the Drive folder is shared with the service account and contains PDF, DOCX, or TXT files.
+- No files found during ingestion: confirm the signed-in Google account can access the Drive folder and it contains PDF, DOCX, or TXT files.

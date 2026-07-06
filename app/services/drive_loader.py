@@ -4,11 +4,9 @@ import asyncio
 import io
 from collections.abc import AsyncIterator, Iterable
 from dataclasses import dataclass
-from pathlib import Path
+from typing import Any
 
 from docx import Document as DocxDocument
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 from pypdf import PdfReader
@@ -21,7 +19,6 @@ from app.utils.text_cleaner import clean_text
 logger = get_logger(__name__)
 
 
-DRIVE_SCOPES = ("https://www.googleapis.com/auth/drive.readonly",)
 SUPPORTED_MIME_TYPES = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -42,19 +39,9 @@ class DriveFile:
 class GoogleDriveLoader:
     """Read supported files from Google Drive and convert them to pages."""
 
-    def __init__(self, credentials_path: str | None) -> None:
-        """Create a Drive API client from a service-account credentials file."""
-        if not credentials_path:
-            raise ValueError("GOOGLE_APPLICATION_CREDENTIALS is required for Drive ingestion")
-        credentials_file = Path(credentials_path)
-        if not credentials_file.exists():
-            raise FileNotFoundError(f"Google credentials file not found: {credentials_file}")
-
-        credentials = service_account.Credentials.from_service_account_file(
-            str(credentials_file),
-            scopes=list(DRIVE_SCOPES),
-        )
-        self._service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+    def __init__(self, drive_service: Any) -> None:
+        """Use an already-authenticated Google Drive API service."""
+        self._service = drive_service
 
     async def iter_folder_documents(self, folder_ids: Iterable[str]) -> AsyncIterator[DocumentPage]:
         """Yield extracted pages for every configured Drive folder."""
