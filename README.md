@@ -1,4 +1,4 @@
-# GoogleDriveRAGOpenAI
+# RagAIKnowledgeAssistant
 
 FastAPI service for asking questions over documents stored in Google Drive. It ingests supported Drive files, chunks and embeds their text with OpenAI embeddings, stores vectors in a local Chroma database, and answers questions with source citations.
 

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/GoogleDriveRAGOpenAI.iml" filepath="$PROJECT_DIR$/.idea/GoogleDriveRAGOpenAI.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/rag-ai-knowledge-assistant.iml" filepath="$PROJECT_DIR$/.idea/rag-ai-knowledge-assistant.iml" />
     </modules>
   </component>
 </project>
